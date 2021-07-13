@@ -208,7 +208,7 @@ export default async function getBaseWebpackConfig(
     config,
     dev = false,
     isServer = false,
-    pagesDir,
+    pagesDirs,
     target = 'server',
     reactProductionProfiling = false,
     entrypoints,
@@ -219,7 +219,7 @@ export default async function getBaseWebpackConfig(
     config: NextConfig
     dev?: boolean
     isServer?: boolean
-    pagesDir: string
+    pagesDirs: string[]
     target?: string
     reactProductionProfiling?: boolean
     entrypoints: WebpackEntrypoints
@@ -289,7 +289,7 @@ export default async function getBaseWebpackConfig(
         configFile: babelConfigFile,
         isServer,
         distDir,
-        pagesDir,
+        pagesDirs,
         cwd: dir,
         // Webpack 5 has a built-in loader cache
         cache: !isWebpack5,
@@ -426,18 +426,18 @@ export default async function getBaseWebpackConfig(
       ...nodePathList, // Support for NODE_PATH environment variable
     ],
     alias: {
-      next: NEXT_PROJECT_ROOT,
-      [PAGES_DIR_ALIAS]: pagesDir,
-      [DOT_NEXT_ALIAS]: distDir,
-      ...getOptimizedAliases(isServer),
-      ...getReactProfilingInProduction(),
-      [clientResolveRewrites]: hasRewrites
-        ? clientResolveRewrites
-        : // With webpack 5 an alias can be pointed to false to noop
-        isWebpack5
-        ? false
-        : clientResolveRewritesNoop,
-    },
+          next: NEXT_PROJECT_ROOT,
+          [PAGES_DIR_ALIAS]: pagesDirs,
+          [DOT_NEXT_ALIAS]: distDir,
+          ...getOptimizedAliases(isServer),
+          ...getReactProfilingInProduction(),
+          [clientResolveRewrites]: hasRewrites
+            ? clientResolveRewrites
+            : // With webpack 5 an alias can be pointed to false to noop
+            isWebpack5
+            ? false
+            : clientResolveRewritesNoop,
+        },
     ...(isWebpack5 && !isServer
       ? {
           // Full list of old polyfills is accessible here:
@@ -620,13 +620,13 @@ export default async function getBaseWebpackConfig(
 
   const crossOrigin = config.crossOrigin
 
-  let customAppFile: string | null = await findPageFile(
-    pagesDir,
-    '/_app',
-    config.pageExtensions
-  )
-  if (customAppFile) {
-    customAppFile = path.resolve(path.join(pagesDir, customAppFile))
+
+  let customApp = await findPageFile(pagesDirs, '/_app', config.pageExtensions)
+  let customAppFile = null
+  if (customApp) {
+    customAppFile = path.resolve(
+      path.join(customApp.pageBase, customApp.pagePath)
+    )
   }
 
   const conformanceConfig = Object.assign(
@@ -973,6 +973,8 @@ export default async function getBaseWebpackConfig(
       webassemblyModuleFilename: 'static/wasm/[modulehash].wasm',
     },
     performance: false,
+    // TODO: fix this
+    // @ts-ignore
     resolve: resolveConfig,
     resolveLoader: {
       // The loaders Next.js provides
@@ -1150,7 +1152,7 @@ export default async function getBaseWebpackConfig(
       !isServer &&
         new ReactLoadablePlugin({
           filename: REACT_LOADABLE_MANIFEST,
-          pagesDir,
+          pagesDirs,
         }),
       !isServer && new DropClientPage(),
       // Moment.js is an extremely popular library that bundles large locale files

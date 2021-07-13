@@ -131,7 +131,7 @@ export default class HotReloader {
   private dir: string
   private buildId: string
   private middlewares: any[]
-  private pagesDir: string
+  private pagesDirs: string[]
   private webpackHotMiddleware: (NextHandleFunction & any) | null
   private config: NextConfig
   private stats: webpack.Stats | null
@@ -151,13 +151,13 @@ export default class HotReloader {
     dir: string,
     {
       config,
-      pagesDir,
+      pagesDirs,
       buildId,
       previewProps,
       rewrites,
     }: {
       config: NextConfig
-      pagesDir: string
+      pagesDirs: string[]
       buildId: string
       previewProps: __ApiPreviewProps
       rewrites: CustomRoutes['rewrites']
@@ -166,7 +166,7 @@ export default class HotReloader {
     this.buildId = buildId
     this.dir = dir
     this.middlewares = []
-    this.pagesDir = pagesDir
+    this.pagesDirs = pagesDirs
     this.webpackHotMiddleware = null
     this.stats = null
     this.serverStats = null
@@ -262,12 +262,14 @@ export default class HotReloader {
 
   private async getWebpackConfig() {
     const pagePaths = await Promise.all([
-      findPageFile(this.pagesDir, '/_app', this.config.pageExtensions),
-      findPageFile(this.pagesDir, '/_document', this.config.pageExtensions),
+      findPageFile(this.pagesDirs, '/_app', this.config.pageExtensions),
+      findPageFile(this.pagesDirs, '/_document', this.config.pageExtensions),
     ])
 
     const pages = createPagesMapping(
-      pagePaths.filter((i) => i !== null) as string[],
+      pagePaths
+        .map((file) => file?.pagePath)
+        .filter((i) => i !== null) as string[],
       this.config.pageExtensions
     )
     const entrypoints = createEntrypoints(
@@ -285,7 +287,7 @@ export default class HotReloader {
         isServer: false,
         config: this.config,
         buildId: this.buildId,
-        pagesDir: this.pagesDir,
+        pagesDirs: this.pagesDirs,
         rewrites: this.rewrites,
         entrypoints: entrypoints.client,
       }),
@@ -294,7 +296,7 @@ export default class HotReloader {
         isServer: true,
         config: this.config,
         buildId: this.buildId,
-        pagesDir: this.pagesDir,
+        pagesDirs: this.pagesDirs,
         rewrites: this.rewrites,
         entrypoints: entrypoints.server,
       }),
@@ -309,7 +311,7 @@ export default class HotReloader {
       isServer: false,
       config: this.config,
       buildId: this.buildId,
-      pagesDir: this.pagesDir,
+      pagesDirs: this.pagesDirs,
       rewrites: {
         beforeFiles: [],
         afterFiles: [],
@@ -558,7 +560,7 @@ export default class HotReloader {
     })
 
     this.onDemandEntries = onDemandEntryHandler(this.watcher, multiCompiler, {
-      pagesDir: this.pagesDir,
+      pagesDirs: this.pagesDirs,
       pageExtensions: this.config.pageExtensions,
       ...(this.config.onDemandEntries as {
         maxInactiveAge: number

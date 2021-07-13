@@ -46,6 +46,18 @@ if (typeof React.Suspense === 'undefined') {
   )
 }
 
+const findPageName = (pagesDirs: string[], fileName: string) => {
+  for (let index = 0; index < pagesDirs.length; index++) {
+    const pagesDir = pagesDirs[index]
+    let pageName = relative(pagesDir!, fileName).replace(/\\+/g, '/')
+    if (pageName.startsWith('../')) {
+      continue
+    }
+    return '/' + pageName
+  }
+  return '/'
+}
+
 // Load ReactDevOverlay only when needed
 let ReactDevOverlayImpl: React.FunctionComponent
 const ReactDevOverlay = (props: any) => {
@@ -107,7 +119,7 @@ export default class DevServer extends Server {
       )
     }
     this.isCustomServer = !options.isNextDevCommand
-    this.pagesDir = findPagesDir(this.dir)
+    this.pagesDirs = findPagesDir(this.dir, this.nextConfig.pagesPaths)
     this.staticPathsWorker = new Worker(
       require.resolve('./static-paths-worker'),
       {
@@ -193,22 +205,24 @@ export default class DevServer extends Server {
 
     let resolved = false
     return new Promise((resolve, reject) => {
-      const pagesDir = this.pagesDir
+      const pagesDirs = this.pagesDirs || []
 
       // Watchpack doesn't emit an event for an empty directory
-      fs.readdir(pagesDir!, (_, files) => {
-        if (files?.length) {
-          return
-        }
+      pagesDirs.forEach((dir) => {
+        fs.readdir(dir!, (_, files) => {
+          if (files?.length) {
+            return
+          }
 
-        if (!resolved) {
-          resolve()
-          resolved = true
-        }
+          if (!resolved) {
+            resolve()
+            resolved = true
+          }
+        })
       })
 
       let wp = (this.webpackWatcher = new Watchpack())
-      wp.watch([], [pagesDir!], 0)
+      wp.watch([], pagesDirs!, 0)
 
       wp.on('aggregated', () => {
         const routedPages = []
@@ -218,8 +232,7 @@ export default class DevServer extends Server {
             continue
           }
 
-          let pageName =
-            '/' + relative(pagesDir!, fileName).replace(/\\+/g, '/')
+          let pageName = findPageName(pagesDirs, fileName).replace(/\\+/g, '/')
           pageName = pageName.replace(regexPageExtension, '')
           pageName = pageName.replace(/\/index$/, '') || '/'
 
@@ -277,7 +290,7 @@ export default class DevServer extends Server {
   async prepare(): Promise<void> {
     await verifyTypeScriptSetup(
       this.dir,
-      this.pagesDir!,
+      this.pagesDirs!,
       false,
       !this.nextConfig.images.disableStaticImages
     )
@@ -298,7 +311,7 @@ export default class DevServer extends Server {
     }
 
     this.hotReloader = new HotReloader(this.dir, {
-      pagesDir: this.pagesDir!,
+      pagesDirs: this.pagesDirs!,
       config: this.nextConfig,
       previewProps: this.getPreviewProps(),
       buildId: this.buildId,
@@ -315,7 +328,7 @@ export default class DevServer extends Server {
       eventCliSession(PHASE_DEVELOPMENT_SERVER, this.distDir, {
         webpackVersion: this.hotReloader.isWebpack5 ? 5 : 4,
         cliCommand: 'dev',
-        isSrcDir: relative(this.dir, this.pagesDir!).startsWith('src'),
+        isSrcDir: relative(this.dir, this.pagesDirs![0]).startsWith('src'),
         hasNowJson: !!(await findUp('now.json', { cwd: this.dir })),
         isCustomServer: this.isCustomServer,
       })
@@ -346,7 +359,7 @@ export default class DevServer extends Server {
     }
 
     const pageFile = await findPageFile(
-      this.pagesDir!,
+      this.pagesDirs!,
       normalizedPath,
       this.nextConfig.pageExtensions
     )

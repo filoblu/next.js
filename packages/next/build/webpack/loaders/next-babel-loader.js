@@ -26,7 +26,7 @@ const customBabelLoader = babelLoader((babel) => {
     customOptions(opts) {
       const custom = {
         isServer: opts.isServer,
-        pagesDir: opts.pagesDir,
+        pagesDirs: opts.pagesDirs,
         development: opts.development,
         hasReactRefresh: opts.hasReactRefresh,
         hasJsxRuntime: opts.hasJsxRuntime,
@@ -60,7 +60,7 @@ const customBabelLoader = babelLoader((babel) => {
       delete loader.isServer
       delete loader.cache
       delete loader.distDir
-      delete loader.pagesDir
+      delete loader.pagesDirs
       delete loader.development
       delete loader.hasReactRefresh
       delete loader.hasJsxRuntime
@@ -72,7 +72,7 @@ const customBabelLoader = babelLoader((babel) => {
         source,
         customOptions: {
           isServer,
-          pagesDir,
+          pagesDirs,
           development,
           hasReactRefresh,
           hasJsxRuntime,
@@ -81,7 +81,7 @@ const customBabelLoader = babelLoader((babel) => {
     ) {
       const filename = this.resourcePath
       const options = Object.assign({}, cfg.options)
-      const isPageFile = filename.startsWith(pagesDir)
+      const isPageFile = new RegExp(`^((${pagesDirs.join(')|(')}))`).test(filename)
 
       if (cfg.hasFilesystemConfig()) {
         for (const file of [cfg.babelrc, cfg.config]) {
@@ -99,7 +99,7 @@ const customBabelLoader = babelLoader((babel) => {
       options.caller.isServer = isServer
       options.caller.isDev = development
       options.caller.hasJsxRuntime = hasJsxRuntime
-      options.caller.pagesDir = pagesDir
+      options.caller.pagesDirs = pagesDirs
 
       const emitWarning = this.emitWarning.bind(this)
       Object.defineProperty(options.caller, 'onWarning', {
